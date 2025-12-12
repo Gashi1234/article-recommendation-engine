@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Available Articles</h2>
+
+  <ul>
+    {% for a in articles %}
+      <li>
+        <strong>{{ a.title }}</strong>
+        <span> ({{ a.category }})</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}
