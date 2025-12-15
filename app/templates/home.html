@@ -6,9 +6,11 @@
   <ul>
     {% for a in articles %}
       <li>
-        <strong>{{ a.title }}</strong>
-        <span> ({{ a.category }})</span>
+        <a href="/articles/{{ a.id }}">{{ a.title }}</a>
+        ({{ a.category_name or "" }})
       </li>
     {% endfor %}
   </ul>
+  
+  
 {% endblock %}
