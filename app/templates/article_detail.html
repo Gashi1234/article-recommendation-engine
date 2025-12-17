@@ -3,6 +3,7 @@
   <h2>{{ article.title }}</h2>
   <p><strong>Category:</strong> {{ article.category_name or "" }}</p>
   <p>{{ article.content }}</p>
+  <p><strong>Views:</strong> {{ views }}</p>
 
   <p><a href="/">Back</a></p>
 {% endblock %}
