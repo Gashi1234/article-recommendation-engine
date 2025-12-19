@@ -27,17 +27,14 @@ class ArticleRepository:
     def list_all(self) -> List[Article]:
         conn = get_connection()
         cur = conn.cursor()
-
         cur.execute("""
             SELECT a.id, a.title, a.category_id, a.content, c.name
             FROM articles a
             LEFT JOIN categories c ON c.id = a.category_id
             ORDER BY a.id DESC
         """)
-
         rows = cur.fetchall()
         conn.close()
-
         articles: List[Article] = []
         for (id_, title, category_id, content, category_name) in rows:
             articles.append(
@@ -54,20 +51,16 @@ class ArticleRepository:
     def get_by_id(self, article_id: int) -> Optional[Article]:
         conn = get_connection()
         cur = conn.cursor()
-
         cur.execute("""
             SELECT a.id, a.title, a.category_id, a.content, c.name
             FROM articles a
             LEFT JOIN categories c ON c.id = a.category_id
             WHERE a.id = ?
         """, (article_id,))
-
         row = cur.fetchone()
         conn.close()
-
         if not row:
             return None
-
         (id_, title, category_id, content, category_name) = row
         return Article(
             id=id_,

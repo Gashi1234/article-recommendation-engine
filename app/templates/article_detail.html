@@ -1,9 +1,35 @@
 {% extends "base.html" %}
+
 {% block content %}
   <h2>{{ article.title }}</h2>
   <p><strong>Category:</strong> {{ article.category_name or "" }}</p>
   <p>{{ article.content }}</p>
   <p><strong>Views:</strong> {{ views }}</p>
+  <p><strong>Likes:</strong> <span id="likes">{{ likes }}</span></p>
+
+  <!-- Vendos article_id si data attribute -->
+  <button id="likeBtn" data-article-id="{{ article.id }}">Like 👍</button>
 
   <p><a href="/">Back</a></p>
+
+  <script>
+    // Merr article_id nga data-attribute
+    const likeBtn = document.getElementById("likeBtn");
+    likeBtn.onclick = function() {
+      const articleId = this.dataset.articleId;
+
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ article_id: parseInt(articleId), event_type: "like" })
+      })
+      .then(res => {
+        if(res.ok){
+          const likesSpan = document.getElementById("likes");
+          likesSpan.textContent = parseInt(likesSpan.textContent) + 1;
+        }
+      })
+      .catch(err => console.error(err));
+    };
+  </script>
 {% endblock %}

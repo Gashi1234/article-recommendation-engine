@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Optional
 
-@dataclass
+@dataclass(frozen=True)
 class InteractionEvent:
     id: Optional[int]
     article_id: int
-    event_type: str
-    created_at: str
-    user_id: Optional[int] = None
+    user_id: Optional[int]
+    event_type: str  # "view", "like", "time_spent"
     duration_ms: Optional[int] = None
+    created_at: Optional[str] = None
