@@ -4,6 +4,7 @@ from app.services.interaction_event_service import InteractionEventService
 from app.models.interaction_event import InteractionEvent
 from app.data.schema import init_db
 from app.data.seed import seed_if_empty
+from app.services.recommendation_factory import RecommendationFactory
 
 def create_app():
     app = Flask(__name__)
@@ -56,13 +57,23 @@ def create_app():
     # --------------------
     @app.route("/api/recommendations/<int:article_id>")
     def recommendations(article_id: int):
-        articles = service.list_articles()
-        articles_with_views = [
-            (a, event_service.count_for_article(a.id, "view")) for a in articles
-        ]
-        sorted_articles = sorted(articles_with_views, key=lambda x: x[1], reverse=True)
-        top5 = [a.id for a, _ in sorted_articles[:5]]
-        return jsonify({"recommendations": top5})
+        strategy_name = request.args.get("strategy", "popular")
+
+        strategy = RecommendationFactory.create(
+            strategy_name=strategy_name,
+            article_service=service,
+            event_service=event_service,
+        )
+
+        results = strategy.recommend(article_id=article_id, limit=5)
+
+        return jsonify({
+            "strategy": strategy_name,
+            "recommendations": [
+                {"id": a.id, "title": a.title} for a in results
+            ]
+        })
+
 
     @app.route("/api/analytics/<int:article_id>")
     def analytics(article_id: int):
