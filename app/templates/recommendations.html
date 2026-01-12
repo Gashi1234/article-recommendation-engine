@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Recommendations</h2>
+
+<form method="get">
+  <label for="article_id">Article</label>
+  <select name="article_id" id="article_id">
+    <option value="">Choose an article</option>
+    {% for a in articles %}
+      <option value="{{ a.id }}" {% if a.id == selected_article_id %}selected{% endif %}>
+        {{ a.title }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <label for="strategy">Strategy</label>
+  <select name="strategy" id="strategy">
+    <option value="popular" {% if strategy == "popular" %}selected{% endif %}>Popular</option>
+    <option value="content" {% if strategy == "content" %}selected{% endif %}>Content</option>
+  </select>
+
+  <button type="submit">Show</button>
+</form>
+
+{% if recommendations and recommendations|length > 0 %}
+  <h3>Results</h3>
+  <ul>
+    {% for r in recommendations %}
+      <li>
+        <a href="/articles/{{ r.id }}">{{ r.title }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No recommendations yet. Choose an article and click Show.</p>
+{% endif %}
+{% endblock %}

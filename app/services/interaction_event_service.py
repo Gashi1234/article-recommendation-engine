@@ -46,3 +46,19 @@ class InteractionEventService:
         (n,) = cur.fetchone()
         conn.close()
         return int(n)
+    
+    def total_duration_ms_for_article(self, article_id: int, event_type: str) -> int:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(duration_ms), 0)
+            FROM interaction_events
+            WHERE article_id = ? AND event_type = ? AND duration_ms IS NOT NULL
+            """,
+            (article_id, event_type)
+        )
+        (total,) = cur.fetchone()
+        conn.close()
+        return int(total or 0)
+

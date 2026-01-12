@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Analytics</h2>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Article</th>
+      <th>Views</th>
+      <th>Likes</th>
+      <th>Time spent(minutes)</th>
+      <th>Category</th>
+      <th>Top 3 keywords</th>
+    </tr>
+  </thead>  
+  <tbody>
+    {% for row in analytics_data %}
+      <tr>
+        <td>
+          <a href="/articles/{{ row.article.id }}">{{ row.article.title }}</a>
+        </td>
+        <td>{{ row.views }}</td>
+        <td>{{ row.likes }}</td>
+        <td>{{ row.time_spent_minutes }} min</td>
+        <td>{{ row.category }}</td>
+        <td>{{ row.top_keywords }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<br><br>
+
+<h3>Charts</h3>
+
+<div style="max-width: 900px;">
+  <h4>Views per Article</h4>
+  <canvas id="viewsChart"></canvas>
+</div>
+
+<br>
+
+<div style="max-width: 900px;">
+  <h4>Likes per Article</h4>
+  <canvas id="likesChart"></canvas>
+</div>
+
+<br>
+
+<div style="max-width: 900px;">
+  <h4>Time spent per Article (minutes)</h4>
+  <canvas id="timeSpentChart"></canvas>
+</div>
+
+<br>
+
+<div style="max-width: 900px;">
+  <h4>Articles per Category</h4>
+  <canvas id="categoryChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  const rows = [
+    {% for row in analytics_data %}
+      {
+        title: {{ row.article.title | tojson }},
+        views: {{ row.views }},
+        likes: {{ row.likes }},
+        time_spent_minutes: {{ row.time_spent_minutes }}
+      }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  const labels = rows.map(r => r.title);
+  const viewsData = rows.map(r => r.views);
+  const likesData = rows.map(r => r.likes);
+  const timeSpentData = rows.map(r => r.time_spent_minutes);
+
+  const categoryLabels = {{ category_labels | tojson }};
+  const categoryValues = {{ category_values | tojson }};
+
+  new Chart(document.getElementById("viewsChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Views",
+        data: viewsData
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  new Chart(document.getElementById("likesChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Likes",
+        data: likesData
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  new Chart(document.getElementById("timeSpentChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Minutes",
+        data: timeSpentData
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  new Chart(document.getElementById("categoryChart"), {
+    type: "bar",
+    data: {
+      labels: categoryLabels,
+      datasets: [{
+        label: "Articles",
+        data: categoryValues
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+</script>
+
+{% endblock %}

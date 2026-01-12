@@ -15,7 +15,7 @@ class CategoryRepository:
         cur.execute("INSERT OR IGNORE INTO categories(name) VALUES (?)", (name,))
         conn.commit()
 
-        # Merr ID-në
+        # Get ID
         cur.execute("SELECT id FROM categories WHERE name = ?", (name,))
         row = cur.fetchone()
         conn.close()
@@ -31,3 +31,16 @@ class CategoryRepository:
         rows = cur.fetchall()
         conn.close()
         return [Category(id=r["id"], name=r["name"]) for r in rows]
+    
+    def get_by_id(self, category_id: int):
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, name FROM categories WHERE id = ?",
+                (category_id,)
+            ).fetchone()
+
+        if not row:
+            return None
+
+        return Category(id=row[0], name=row[1])
+
