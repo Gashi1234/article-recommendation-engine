@@ -1,3 +1,4 @@
+from app.config.config import Config
 from flask import Flask, render_template, jsonify, request
 from app.services.article_service import ArticleService
 from app.services.interaction_event_service import InteractionEventService
@@ -7,12 +8,19 @@ from app.data.seed import seed_if_empty
 from app.services.recommendation_factory import RecommendationFactory
 from dataclasses import replace
 from sklearn.feature_extraction.text import TfidfVectorizer
+import logging
 
 
 
 def create_app():
 
     app = Flask(__name__)
+
+    logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s"
+    )
+    logger = logging.getLogger("article_engine")
 
     # Initialize DB and seed
     init_db()
@@ -27,7 +35,7 @@ def create_app():
     def get_category_name(category_id):
         if not category_id:
             return "Unknown"
-        conn = sqlite3.connect("app/data/app.db")
+        conn = sqlite3.connect(Config.DB_PATH)
         try:
             row = conn.execute(
                 "SELECT name FROM categories WHERE id = ?",
@@ -80,7 +88,7 @@ def create_app():
             event_service=event_service,
         )
 
-        recommendations = strategy.recommend(article_id=article_id, limit=5)
+        recommendations = strategy.recommend(article_id=article_id, limit=8)
 
         # NEW: attach category names and exclude current article
         recommendations = [
@@ -105,22 +113,24 @@ def create_app():
 
     @app.route("/api/recommendations/<int:article_id>")
     def recommendations(article_id: int):
-        strategy_name = request.args.get("strategy", "popular")
+        requested = request.args.get("strategy", "popular")
 
         strategy = RecommendationFactory.create(
-            strategy_name=strategy_name,
+            strategy_name=requested,
             article_service=service,
             event_service=event_service,
         )
 
-        results = strategy.recommend(article_id=article_id, limit=5)
+        results = strategy.recommend(article_id=article_id, limit=8)
+
+        actual = strategy.__class__.__name__
 
         return jsonify({
-            "strategy": strategy_name,
-            "recommendations": [
-                {"id": a.id, "title": a.title} for a in results
-            ]
+            "requested_strategy": requested,
+            "actual_strategy": actual,
+            "recommendations": [{"id": a.id, "title": a.title} for a in results]
         })
+
 
     @app.route("/recommendations")
     def recommendations_page():
@@ -138,7 +148,7 @@ def create_app():
             )
             recommendations = strategy.recommend(
                 article_id=article_id,
-                limit=5
+                limit=8
             )
 
         return render_template(
@@ -247,19 +257,44 @@ def create_app():
 
     @app.route("/api/events", methods=["POST"])
     def log_event():
-        data = request.json
-        event_type = data["event_type"]
-        duration = data.get("duration_ms")
-        event_service.log(
-            InteractionEvent(
-                id=None,
-                article_id=data["article_id"],
-                user_id=data.get("user_id"),
-                event_type=event_type,
-                duration_ms=duration,
-                created_at=None
+        try:
+            data = request.get_json(silent=True) or {}
+
+            event_type = data.get("event_type")
+            article_id = data.get("article_id")
+            duration = data.get("duration_ms")
+
+            allowed_types = {"view", "like", "time_spent"}
+
+            errors = []
+            if event_type not in allowed_types:
+                errors.append("event_type must be one of: view, like, time_spent")
+            if not isinstance(article_id, int):
+                errors.append("article_id must be an integer")
+            if event_type == "time_spent" and duration is not None and not isinstance(duration, int):
+                errors.append("duration_ms must be an integer (milliseconds)")
+
+            if errors:
+                logger.warning(f"Bad /api/events payload: {data} errors={errors}")
+                return jsonify({"status": "error", "errors": errors, "received": data}), 400
+
+            event_service.log(
+                InteractionEvent(
+                    id=None,
+                    article_id=article_id,
+                    user_id=data.get("user_id"),
+                    event_type=event_type,
+                    duration_ms=duration,
+                    created_at=None
+                )
             )
-        )
-        return jsonify({"status": "ok"})
+
+            logger.info(f"Event logged: article_id={article_id} type={event_type} duration_ms={duration}")
+            return jsonify({"status": "ok"}), 201
+
+        except Exception:
+            logger.exception("Unhandled error in /api/events")
+            return jsonify({"status": "error", "message": "internal server error"}), 500
+
 
     return app

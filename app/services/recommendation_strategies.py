@@ -8,6 +8,9 @@ from app.models.article import Article
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from dataclasses import dataclass
+from typing import List
+
 
 
 class RecommendationStrategy(Protocol):
@@ -105,4 +108,39 @@ class ContentBasedStrategy:
 
         ranked = same_category_scored + other_scored
         return [a for score, a in ranked[:limit]]
+    
+@dataclass
+class HybridStrategy:
+        content_strategy: any
+        popularity_strategy: any
+
+        def recommend(self, article_id: int, limit: int = 5) -> List[Article]:
+            content_recs = self.content_strategy.recommend(article_id=article_id, limit=limit)
+            pop_recs = self.popularity_strategy.recommend(article_id=article_id, limit=limit)
+
+            merged = []
+            seen = set()
+
+            i = 0
+            while len(merged) < limit and (i < len(content_recs) or i < len(pop_recs)):
+                if i < len(content_recs):
+                    a = content_recs[i]
+                    if a.id != article_id and a.id not in seen:
+                        seen.add(a.id)
+                        merged.append(a)
+                        if len(merged) >= limit:
+                            break
+
+                if i < len(pop_recs):
+                    a = pop_recs[i]
+                    if a.id != article_id and a.id not in seen:
+                        seen.add(a.id)
+                        merged.append(a)
+                        if len(merged) >= limit:
+                            break
+
+                i += 1
+
+            return merged
+
 
