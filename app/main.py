@@ -16,6 +16,8 @@ def create_app():
 
     app = Flask(__name__)
 
+    app.json.sort_keys = False
+
     logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s - %(message)s"
@@ -60,11 +62,11 @@ def create_app():
         if not article:
             return "Article not found", 404
 
-         # NEW: attach category name to the main article
+        # NEW: attach category name to the main article
         article = replace(
-        article,
-        category_name=get_category_name(article.category_id)
-    )
+            article,
+            category_name=get_category_name(article.category_id)
+        )
         # Log view event automatically
         event_service.log(
             InteractionEvent(
@@ -107,6 +109,48 @@ def create_app():
             rec_strategy=strategy_name
         )
 
+
+    def get_top_keywords_for_article_id(article_id: int, top_n: int = 3) -> str:
+        articles = service.list_articles()
+        if not articles:
+            return "-"
+
+        def build_text(a) -> str:
+            title = (getattr(a, "title", "") or "").strip()
+            content = (getattr(a, "content", "") or "").strip()
+            category_name = get_category_name(getattr(a, "category_id", None))
+            return f"{title} {content} {category_name}".strip()
+
+        texts = [build_text(a) for a in articles]
+
+        if not any(t.strip() for t in texts):
+            return "-"
+
+        vectorizer = TfidfVectorizer(
+            lowercase=True,
+            max_features=5000,
+            stop_words="english"
+        )
+        tfidf_matrix = vectorizer.fit_transform(texts)
+        feature_names = vectorizer.get_feature_names_out()
+
+        id_to_index = {a.id: i for i, a in enumerate(articles)}
+        idx = id_to_index.get(article_id)
+
+        if idx is None:
+            return "-"
+
+        row_vec = tfidf_matrix[idx]
+        if row_vec.nnz == 0:
+            return "-"
+
+        indices = row_vec.indices
+        data = row_vec.data
+
+        top_pairs = sorted(zip(indices, data), key=lambda x: x[1], reverse=True)[:top_n]
+        words = [feature_names[i] for i, _ in top_pairs]
+
+        return ", ".join(words) if words else "-"
 
    
     # API routes
@@ -165,13 +209,23 @@ def create_app():
         total_seconds = round(total_ms / 1000.0, 2)
         total_minutes = round(total_ms / 60000.0, 2)
 
-        return jsonify({
+        article = service.get_article(article_id)
+        category_name = get_category_name(getattr(article, "category_id", None)) if article else "Unknown"
+        top_keywords = get_top_keywords_for_article_id(article_id, top_n=3)
+
+        requested = request.args.get("strategy")  # optional, for consistency with your URL
+
+        data = {
             "article_id": article_id,
             "views": event_service.count_for_article(article_id, "view"),
             "likes": event_service.count_for_article(article_id, "like"),
-            "time_spent_seconds": total_seconds,
             "time_spent_minutes": total_minutes,
-        })
+            "time_spent_seconds": total_seconds,
+            "category": category_name,
+            "top_keywords": top_keywords,
+            "requested_strategy": requested
+        }
+        return jsonify(data)
 
     
     @app.route("/analytics")
@@ -250,9 +304,6 @@ def create_app():
             category_labels=category_labels,
             category_values=category_values
         )
-
-
-
 
 
     @app.route("/api/events", methods=["POST"])
