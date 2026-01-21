@@ -2,15 +2,33 @@ from typing import List
 from app.models.interaction_event import InteractionEvent
 from app.data.db import get_connection
 
+
 class InteractionEventService:
 
     def log(self, event: InteractionEvent):
         conn = get_connection()
         cur = conn.cursor()
+
         cur.execute(
-            "INSERT INTO interaction_events(article_id, user_id, event_type, duration_ms) VALUES (?, ?, ?, ?)",
-            (event.article_id, event.user_id, event.event_type, event.duration_ms)
+            """
+            INSERT INTO interaction_events(
+                article_id,
+                user_id,
+                event_type,
+                duration_ms,
+                experiment_group
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                event.article_id,
+                event.user_id,
+                event.event_type,
+                event.duration_ms,
+                getattr(event, "experiment_group", None),
+            )
         )
+
         conn.commit()
         conn.close()
         return event
@@ -24,16 +42,20 @@ class InteractionEventService:
         )
         rows = cur.fetchall()
         conn.close()
+
         events: List[InteractionEvent] = []
         for row in rows:
-            events.append(InteractionEvent(
-                id=row["id"],
-                article_id=row["article_id"],
-                user_id=row["user_id"],
-                event_type=row["event_type"],
-                duration_ms=row["duration_ms"],
-                created_at=row["created_at"]
-            ))
+            events.append(
+                InteractionEvent(
+                    id=row["id"],
+                    article_id=row["article_id"],
+                    user_id=row["user_id"],
+                    event_type=row["event_type"],
+                    duration_ms=row["duration_ms"],
+                    created_at=row["created_at"],
+                    experiment_group=row["experiment_group"],
+                )
+            )
         return events
 
     def count_for_article(self, article_id: int, event_type: str) -> int:
@@ -46,7 +68,7 @@ class InteractionEventService:
         (n,) = cur.fetchone()
         conn.close()
         return int(n)
-    
+
     def total_duration_ms_for_article(self, article_id: int, event_type: str) -> int:
         conn = get_connection()
         cur = conn.cursor()
@@ -61,4 +83,3 @@ class InteractionEventService:
         (total,) = cur.fetchone()
         conn.close()
         return int(total or 0)
-

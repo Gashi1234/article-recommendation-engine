@@ -37,7 +37,7 @@
   
   .brand {
     font-weight: 700;
-    font-size: 30px;
+    font-size: 26.5px;
   }
   
   .nav a {
@@ -89,6 +89,18 @@
     padding: 14px;
     background: white;
   }
+
+  .top-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  
+  .top-nav a {
+    white-space: nowrap;
+  }
+  
   
   .row {
     display: flex;

@@ -1,5 +1,5 @@
 from app.config.config import Config
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session
 from app.services.article_service import ArticleService
 from app.services.interaction_event_service import InteractionEventService
 from app.models.interaction_event import InteractionEvent
@@ -9,7 +9,7 @@ from app.services.recommendation_factory import RecommendationFactory
 from dataclasses import replace
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
-
+import random
 
 
 def create_app():
@@ -18,9 +18,12 @@ def create_app():
 
     app.json.sort_keys = False
 
+    # Step 3B: Session requires a secret key
+    app.secret_key = "dev_secret_key_change_later"
+
     logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s - %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s"
     )
     logger = logging.getLogger("article_engine")
 
@@ -31,7 +34,7 @@ def create_app():
     # Services
     service = ArticleService()
     event_service = InteractionEventService()
-    
+
     import sqlite3
 
     def get_category_name(category_id):
@@ -47,10 +50,29 @@ def create_app():
         finally:
             conn.close()
 
+    # Step 3C: Assign A/B group once per browser session
+    @app.before_request
+    def assign_experiment_group():
+        if "experiment_group" not in session:
+            session["experiment_group"] = random.choice(["A", "B"])
 
-    
+    # Step 4B helper: always read group from session
+    def get_experiment_group() -> str:
+        group = session.get("experiment_group")
+        if group in ("A", "B"):
+            return group
+        # fallback safety (should almost never happen because of before_request)
+        group = random.choice(["A", "B"])
+        session["experiment_group"] = group
+        return group
+
+    # Optional debug route (you can remove later)
+    @app.route("/debug-group")
+    def debug_group():
+        return jsonify({"experiment_group": session.get("experiment_group")})
+
     # Web routes
-  
+
     @app.route("/")
     def home():
         articles = service.list_articles()
@@ -62,12 +84,13 @@ def create_app():
         if not article:
             return "Article not found", 404
 
-        # NEW: attach category name to the main article
+        # attach category name to the main article
         article = replace(
             article,
             category_name=get_category_name(article.category_id)
         )
-        # Log view event automatically
+
+        # Log view event automatically (now includes experiment_group)
         event_service.log(
             InteractionEvent(
                 id=None,
@@ -76,13 +99,18 @@ def create_app():
                 event_type="view",
                 duration_ms=None,
                 created_at=None,
+                experiment_group=get_experiment_group(),
             )
         )
 
         views = event_service.count_for_article(article_id, "view")
         likes = event_service.count_for_article(article_id, "like")
 
-        strategy_name = request.args.get("strategy", "popular")
+        session_group = session.get("experiment_group", "A")
+
+        # A/B strategies
+        strategy_name = "popular" if session_group == "A" else "content"
+
 
         strategy = RecommendationFactory.create(
             strategy_name=strategy_name,
@@ -92,13 +120,12 @@ def create_app():
 
         recommendations = strategy.recommend(article_id=article_id, limit=8)
 
-        # NEW: attach category names and exclude current article
+        # attach category names and exclude current article
         recommendations = [
             replace(a, category_name=get_category_name(a.category_id))
             for a in recommendations
             if a.id != article_id
         ]
-
 
         return render_template(
             "article_detail.html",
@@ -108,7 +135,6 @@ def create_app():
             recommendations=recommendations,
             rec_strategy=strategy_name
         )
-
 
     def get_top_keywords_for_article_id(article_id: int, top_n: int = 3) -> str:
         articles = service.list_articles()
@@ -152,7 +178,6 @@ def create_app():
 
         return ", ".join(words) if words else "-"
 
-   
     # API routes
 
     @app.route("/api/recommendations/<int:article_id>")
@@ -175,11 +200,15 @@ def create_app():
             "recommendations": [{"id": a.id, "title": a.title} for a in results]
         })
 
-
     @app.route("/recommendations")
     def recommendations_page():
         article_id = request.args.get("article_id", type=int)
-        strategy_name = request.args.get("strategy", "popular")
+        group = session.get("experiment_group", "A")
+
+        default_strategy = "popular" if group == "A" else "content"
+
+        strategy_name = request.args.get("strategy", default_strategy)
+
 
         articles = service.list_articles()
         recommendations = []
@@ -213,7 +242,7 @@ def create_app():
         category_name = get_category_name(getattr(article, "category_id", None)) if article else "Unknown"
         top_keywords = get_top_keywords_for_article_id(article_id, top_n=3)
 
-        requested = request.args.get("strategy")  # optional, for consistency with your URL
+        requested = request.args.get("strategy")
 
         data = {
             "article_id": article_id,
@@ -227,12 +256,10 @@ def create_app():
         }
         return jsonify(data)
 
-    
     @app.route("/analytics")
     def analytics_page():
         articles = service.list_articles()
 
-        # Build the text used by content recommendation: title + content + category_name
         def build_text(a) -> str:
             title = (getattr(a, "title", "") or "").strip()
             content = (getattr(a, "content", "") or "").strip()
@@ -241,7 +268,6 @@ def create_app():
 
         texts = [build_text(a) for a in articles]
 
-        # Compute TF-IDF and pick Top 3 keywords for each article
         top_keywords = [""] * len(articles)
 
         if articles and any(t.strip() for t in texts):
@@ -259,17 +285,13 @@ def create_app():
                     top_keywords[i] = ""
                     continue
 
-                # get indices of non-zero weights for this doc
                 indices = row_vec.indices
                 data = row_vec.data
 
-                # sort by tf-idf weight descending and take top 3
                 top_pairs = sorted(zip(indices, data), key=lambda x: x[1], reverse=True)[:3]
                 words = [feature_names[idx] for idx, _ in top_pairs]
 
-                # store as a string for easy display in template
                 top_keywords[i] = ", ".join(words)
-
 
         analytics_data = []
         category_counts = {}
@@ -283,7 +305,6 @@ def create_app():
             category_counts[category_name] = category_counts.get(category_name, 0) + 1
 
             kw = top_keywords[idx] or "-"
-
 
             analytics_data.append({
                 "article": article,
@@ -304,7 +325,6 @@ def create_app():
             category_labels=category_labels,
             category_values=category_values
         )
-
 
     @app.route("/api/events", methods=["POST"])
     def log_event():
@@ -336,7 +356,8 @@ def create_app():
                     user_id=data.get("user_id"),
                     event_type=event_type,
                     duration_ms=duration,
-                    created_at=None
+                    created_at=None,
+                    experiment_group=get_experiment_group(),
                 )
             )
 
@@ -346,6 +367,106 @@ def create_app():
         except Exception:
             logger.exception("Unhandled error in /api/events")
             return jsonify({"status": "error", "message": "internal server error"}), 500
+        
+    @app.route("/api/ab-summary")
+    def ab_summary():
+            conn = sqlite3.connect(Config.DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT
+                experiment_group,
+                COUNT(CASE WHEN event_type='view' THEN 1 END)  AS views,
+                COUNT(CASE WHEN event_type='like' THEN 1 END)  AS likes,
+                COALESCE(SUM(CASE WHEN event_type='time_spent' THEN duration_ms END),0) AS total_duration_ms
+                FROM interaction_events
+                WHERE experiment_group IN ('A','B')
+                GROUP BY experiment_group
+                ORDER BY experiment_group;
+            """)
+
+            rows = cur.fetchall()
+            conn.close()
+
+            results = []
+            for r in rows:
+                minutes = round((r["total_duration_ms"] or 0) / 60000.0, 2)
+                results.append({
+                    "group": r["experiment_group"],
+                    "views": int(r["views"] or 0),
+                    "likes": int(r["likes"] or 0),
+                    "time_spent_minutes": minutes
+                })
+
+            return jsonify({"summary": results})
+    
+    @app.route("/ab-dashboard")
+    def ab_dashboard():
+        conn = sqlite3.connect(Config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+              experiment_group,
+              COUNT(CASE WHEN event_type='view' THEN 1 END)  AS views,
+              COUNT(CASE WHEN event_type='like' THEN 1 END)  AS likes,
+              COALESCE(SUM(CASE WHEN event_type='time_spent' THEN duration_ms END),0) AS total_duration_ms
+            FROM interaction_events
+            WHERE experiment_group IN ('A','B')
+            GROUP BY experiment_group
+            ORDER BY experiment_group;
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        summary = []
+        for r in rows:
+            views = int(r["views"] or 0)
+            likes = int(r["likes"] or 0)
+            minutes = round((r["total_duration_ms"] or 0) / 60000.0, 2)
+            ctr = (likes / views) if views > 0 else 0.0
+
+            summary.append({
+                "group": r["experiment_group"],
+                "views": views,
+                "likes": likes,
+                "ctr": ctr,
+                "time_spent_minutes": minutes
+            })
+
+        # Winner rule:
+        # 1) If CTR differs, pick higher CTR
+        # 2) If CTR tie, pick higher time_spent_minutes
+        # 3) If still tie, pick A
+        a = next((x for x in summary if x["group"] == "A"), None)
+        b = next((x for x in summary if x["group"] == "B"), None)
+
+        winner_group = "A"
+        winner_metric = "CTR"
+
+        if a and b:
+            if b["ctr"] > a["ctr"]:
+                winner_group = "B"
+                winner_metric = "CTR"
+            elif a["ctr"] > b["ctr"]:
+                winner_group = "A"
+                winner_metric = "CTR"
+            else:
+                # CTR tie, use time spent
+                winner_metric = "Time Spent"
+                if b["time_spent_minutes"] > a["time_spent_minutes"]:
+                    winner_group = "B"
+                else:
+                    winner_group = "A"
+
+        return render_template(
+            "ab_dashboard.html",
+            summary=summary,
+            winner_group=winner_group,
+            winner_metric=winner_metric
+        )
 
 
     return app

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="margin-bottom: 12px;">A/B Testing Dashboard</h2>
+
+<br>
+<p>
+    Group A uses the <strong>Popularity-based</strong> recommendation strategy.
+</p> 
+<p>
+    Group B uses the <strong>Content-based</strong> recommendation strategy.
+</p>
+<p>
+The current winner is selected based on the <strong>Click-Through Rate (CTR)</strong>, calculated as:
+<strong>Likes ÷ Views</strong>.
+</p>
+<p>
+    If CTR is equal, <strong>Time Spent (minutes)</strong> is considered.
+</p>
+
+<br>
+
+<p>
+    You can check which algorithm has been chosen <strong>randomly</strong> by visiting:
+    <br>
+    <a href="/debug-group" target="_blank"><strong>/debug-group</strong></a>
+</p>
+
+<br>
+
+<table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; max-width: 900px;">
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th>Views</th>
+      <th>Likes</th>
+      <th>CTR (Likes/Views)</th>
+      <th>Time Spent (minutes)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in summary %}
+    <tr>
+      <td><strong>{{ row.group }}</strong></td>
+      <td>{{ row.views }}</td>
+      <td>{{ row.likes }}</td>
+      <td>{{ "%.2f"|format(row.ctr * 100) }}%</td>
+      <td>{{ row.time_spent_minutes }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div style="margin-top: 18px; padding: 12px; border: 1px solid #ddd; max-width: 900px;">
+    <h3 style="margin: 0 0 8px 0;">Current Winner</h3>
+  
+    <p style="margin: 0;">
+      Metric: <strong>{{ winner_metric }}</strong>
+      <br>
+      Winner: <strong>Group {{ winner_group }}</strong>
+      <br><br>
+  
+      {% if winner_group == "A" %}
+        The Algorithm which users prefer more is:
+        <strong>Popularity-based Recommendation</strong>
+      {% elif winner_group == "B" %}
+        The Algorithm which users prefer more is:
+        <strong>Content-based Recommendation</strong>
+      {% else %}
+        The Algorithm which users prefer more is:
+        <strong>Not enough data yet</strong>
+      {% endif %}
+    </p>
+  </div>
+
+{% endblock %}
