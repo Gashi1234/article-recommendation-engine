@@ -127,8 +127,8 @@ Recommends similar articles based on keyword similarity.
 
 Each browser session is randomly assigned to:
 
-- Group A → Popularity-based strategy  
-- Group B → Content-based strategy  
+- Group A: Popularity-based strategy  
+- Group B: Content-based strategy  
 
 ### Winner Selection Rules
 1. Compare CTR = Likes ÷ Views  
