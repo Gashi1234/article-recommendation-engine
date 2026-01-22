@@ -140,17 +140,17 @@ This allows objective comparison of algorithm performance using real interaction
 
 ## Main Routes
 
-| Route | Description |
-|------|------------|
-| / | Home page |
-| /articles/<id> | Article details + auto view logging |
-| /recommendations | Recommendation UI |
-| /analytics | Analytics dashboard |
-| /ab-dashboard | A/B Testing dashboard |
-| /api/events | Log view, like, time spent |
-| /api/recommendations/<id> | API recommendations |
-| /api/analytics/<id> | API analytics |
-| /api/ab-summary | A/B summary API |
+| Route | Method | Description |
+|------|--------|-------------|
+| / | GET | Home page |
+| /articles/<id> | GET | Article details + auto view logging |
+| /recommendations | GET | Recommendation UI |
+| /analytics | GET | Analytics dashboard |
+| /ab-dashboard | GET | A/B Testing dashboard |
+| /api/events | POST | Log view, like, time spent (JSON body required) |
+| /api/recommendations/<id> | GET | API recommendations (optional ?strategy=popular or ?strategy=content) |
+| /api/analytics/<id> | GET | API analytics data |
+| /api/ab-summary | GET | A/B summary API |
 
 ## How to Run
 
