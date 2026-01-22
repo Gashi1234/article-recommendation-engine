@@ -158,8 +158,8 @@ Install dependencies (without [])
 [```bash
 pip install -r requirements.txt]
 
-Run the app python: 
-run.py.
+Run the app: 
+python3 run.py.
 
 Open in browser: 
 http://127.0.0.1:5050/. 
