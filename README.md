@@ -142,15 +142,16 @@ This allows objective comparison of algorithm performance using real interaction
 
 | Route | Method | Description |
 |------|--------|-------------|
-| / | GET | Home page |
-| /articles/<id> | GET | Article details + auto view logging |
-| /recommendations | GET | Recommendation UI |
-| /analytics | GET | Analytics dashboard |
-| /ab-dashboard | GET | A/B Testing dashboard |
-| /api/events | POST | Log view, like, time spent (JSON body required) |
-| /api/recommendations/<id> | GET | API recommendations (optional ?strategy=popular or ?strategy=content) |
-| /api/analytics/<id> | GET | API analytics data |
-| /api/ab-summary | GET | A/B summary API |
+| `/` | GET | Home page |
+| `/articles/<id>` | GET | Article details + auto view logging |
+| `/recommendations` | GET | Recommendation UI |
+| `/analytics` | GET | Analytics dashboard |
+| `/ab-dashboard` | GET | A/B Testing dashboard |
+| `/api/events` | POST | Log view, like, time spent (JSON body required) |
+| `/api/recommendations/<id>` | GET | API recommendations (optional ?strategy=popular or ?strategy=content) |
+| `/api/analytics/<id>` | GET | API analytics data |
+| `/api/ab-summary` | GET | A/B summary API |
+
 
 ## How to Run
 
