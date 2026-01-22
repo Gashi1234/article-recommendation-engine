@@ -148,7 +148,7 @@ This allows objective comparison of algorithm performance using real interaction
 | `/analytics` | GET | Analytics dashboard |
 | `/ab-dashboard` | GET | A/B Testing dashboard |
 | `/api/events` | POST | Log view, like, time spent (JSON body required) |
-| `/api/recommendations/<id>` | GET | API recommendations (optional ?strategy=popular or ?strategy=content) |
+| `/api/recommendations/<id>` | GET | API recommendations (for ex. <id> = 4 + ?strategy=popular or ?strategy=content) |
 | `/api/analytics/<id>` | GET | API analytics data |
 | `/api/ab-summary` | GET | A/B summary API |
 
