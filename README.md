@@ -143,7 +143,7 @@ This allows objective comparison of algorithm performance using real interaction
 | Route | Method | Description |
 |------|--------|-------------|
 | `/` | GET | Home page |
-| `/articles/<id>` | GET | Article details + auto view logging |
+| `/articles/<id>` | GET | Article details + auto view logging (for ex. `<id>` = 4) |
 | `/recommendations` | GET | Recommendation UI |
 | `/analytics` | GET | Analytics dashboard |
 | `/ab-dashboard` | GET | A/B Testing dashboard |
